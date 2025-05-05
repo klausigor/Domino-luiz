@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Juego de Dominó Mejorado</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: linear-gradient(135deg, #f0f0f0, #e0e0e0);
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    h1 {
+      color: #ff5722;
+      margin-top: 20px;
+    }
+    #mesa, #mano {
+      display: flex;
+      flex-wrap: wrap;
+      margin: 10px;
+      padding: 10px;
+      background-color: #ffffff;
+      border: 2px dashed #ff5722;
+      border-radius: 10px;
+      min-height: 80px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    .ficha {
+      width: 50px;
+      height: 80px;
+      margin: 5px;
+      background-color: #ffcc80;
+      color: #333;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      border: 2px solid #333;
+      border-radius: 5px;
+      cursor: grab;
+      transition: transform 0.3s, box-shadow 0.3s;
+    }
+    .ficha:hover {
+      transform: rotate(-5deg) scale(1.1);
+      box-shadow: 0 6px 12px rgba(0,0,0,0.3);
+    }
+    #mensaje, #puntos, #rondas {
+      margin: 10px;
+      font-weight: bold;
+      color: #333;
+    }
+    button {
+      margin: 5px;
+      padding: 10px 20px;
+      background-color: #ff5722;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 1em;
+      transition: background-color 0.3s, transform 0.2s;
+    }
+    button:hover {
+      background-color: #e64a19;
+      transform: scale(1.05);
+    }
+    .victoria {
+      font-size: 2em;
+      color: #ff5722;
+      animation: brillo 1s infinite alternate;
+    }
+    @keyframes brillo {
+      from { opacity: 1; }
+      to { opacity: 0.5; }
+    }
+    footer {
+      margin-top: 20px;
+      font-size: 0.8em;
+      color: #777;
+    }
+  </style>
+</head>
+<body>
+  <h1><i class="fas fa-dice"></i> Juego de Dominó</h1>
+  <div id="rondas">Ronda: 1</div>
+  <div id="puntos">Puntos totales: 0</div>
+  <div id="mensaje">¡Bienvenido al juego!</div>
+  <div id="mesa" ondragover="permitirSoltar(event)" ondrop="soltarFicha(event)"></div>
+  <div id="mano"></div>
+  <button onclick="pasarTurno()"><i class="fas fa-forward"></i> Pasar Turno</button>
+  <button onclick="reiniciarJuego()"><i class="fas fa-redo"></i> Reiniciar Partida</button>
+
+  <script>
+    // (El mismo código JavaScript del juego, sin cambios significativos, para mantener la funcionalidad)
+    let manoJugador = [];
+    let manoIA = [];
+    let mesa = [];
+    let puntosTotales = 0;
+    let turnoJugador = true;
+    let ronda = 1;
+    let juegoTerminado = false;
+
+    function crearFichas() {
+      const fichas = [];
+      for (let i = 0; i <= 6; i++) {
+        for (let j = i; j <= 6; j++) {
+          fichas.push([i, j]);
+        }
+      }
+      return fichas;
+    }
+
+    function mezclar(array) {
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+    }
+
+    function crearFichaDOM(valor1, valor2, id) {
+      const ficha = document.createElement('div');
+      ficha.className = 'ficha';
+      ficha.draggable = true;
+      ficha.dataset.valor1 = valor1;
+      ficha.dataset.valor2 = valor2;
+      ficha.id = id;
+      ficha.ondragstart = arrastrar;
+      ficha.innerHTML = `<div>${valor1}</div><div>${valor2}</div>`;
+      return ficha;
+    }
+
+    function mostrarMano() {
+      const contenedor = document.getElementById('mano');
+      contenedor.innerHTML = '';
+      manoJugador.forEach((ficha, index) => {
+        const fichaDOM = crearFichaDOM(ficha[0], ficha[1], 'ficha-j-' + index);
+        contenedor.appendChild(fichaDOM);
+      });
+    }
+
+    function arrastrar(event) {
+      if (!turnoJugador || juegoTerminado) {
+        event.preventDefault();
+        return;
+      }
+      event.dataTransfer.setData('text', event.target.id);
+    }
+
+    function permitirSoltar(event) {
+      event.preventDefault();
+    }
+
+    function puedeColocar(valor1, valor2) {
+      if (mesa.length === 0) return true;
+      const izquierda = mesa[0][0];
+      const derecha = mesa[mesa.length - 1][1];
+      return (valor1 === izquierda || valor2 === izquierda || valor1 === derecha || valor2 === derecha);
+    }
+
+    function colocarEnMesa(valor1, valor2, domFicha) {
+      const mesaDOM = document.getElementById('mesa');
+      if (mesa.length === 0) {
+        mesa.push([valor1, valor2]);
+        mesaDOM.appendChild(domFicha);
+      } else {
+        const izquierda = mesa[0][0];
+        const derecha = mesa[mesa.length - 1][1];
+
+        if (valor1 === derecha) {
+          mesa.push([valor1, valor2]);
+          mesaDOM.appendChild(domFicha);
+        } else if (valor2 === derecha) {
+          mesa.push([valor2, valor1]);
+          mesaDOM.appendChild(domFicha);
+        } else if (valor2 === izquierda) {
+          mesa.unshift([valor1, valor2]);
+          mesaDOM.insertBefore(domFicha, mesaDOM.firstChild);
+        } else if (valor1 === izquierda) {
+          mesa.unshift([valor2, valor1]);
+          mesaDOM.insertBefore(domFicha, mesaDOM.firstChild);
+        } else {
+          mensaje("Esa ficha no encaja.");
+          return false;
+        }
+      }
+      actualizarPuntos();
+      verificarVictoria();
+      return true;
+    }
+
+    function soltarFicha(event) {
+      event.preventDefault();
+      if (juegoTerminado) return;
+      const id = event.dataTransfer.getData('text');
+      const ficha = document.getElementById(id);
+      if (ficha && ficha.parentElement.id === "mano" && turnoJugador) {
+        const v1 = parseInt(ficha.dataset.valor1);
+        const v2 = parseInt(ficha.dataset.valor2);
+        if (puedeColocar(v1, v2)) {
+          const index = manoJugador.findIndex(f => (f[0] === v1 && f[1] === v2) || (f[0] === v2 && f[1] === v1));
+          manoJugador.splice(index, 1);
+          colocarEnMesa(v1, v2, ficha);
+          mensaje("Has jugado una ficha.");
+          turnoJugador = false;
+          setTimeout(() => turnoIA(), 1000);
+        } else {
+          mensaje("Esa ficha no encaja en ninguna punta.");
+        }
+      }
+    }
+
+    function actualizarPuntos() {
+      if (mesa.length === 0) return;
+      const izquierda = mesa[0][0];
+      const derecha = mesa[mesa.length - 1][1];
+      puntosTotales = izquierda + derecha;
+      document.getElementById('puntos').textContent = `Puntos totales: ${puntosTotales}`;
+    }
+
+    function mensaje(texto) {
+      document.getElementById('mensaje').textContent = texto;
+    }
+
+    function pasarTurno() {
+      if (!turnoJugador || juegoTerminado) {
+        mensaje("No es tu turno.");
+        return;
+      }
+      mensaje("Has pasado tu turno.");
+      turnoJugador = false;
+      setTimeout(() => turnoIA(), 1000);
+    }
+
+    function turnoIA() {
+      if (juegoTerminado) return;
+      mensaje("Turno de la IA...");
+      let fichaIA = null;
+      let index = -1;
+
+      for (let i = 0; i < manoIA.length; i++) {
+        const [v1, v2] = manoIA[i];
+        if (puedeColocar(v1, v2)) {
+          fichaIA = manoIA[i];
+          index = i;
+          break;
+        }
+      }
+
+      if (fichaIA) {
+        manoIA.splice(index, 1);
+        const fichaDOM = crearFichaDOM(fichaIA[0], fichaIA[1], 'ia-' + Date.now());
+        colocarEnMesa(fichaIA[0], fichaIA[1], fichaDOM);
+        mensaje("La IA ha jugado una ficha.");
+      } else {
+        mensaje("La IA ha pasado el turno.");
+      }
+
+      setTimeout(() => {
+        turnoJugador = true;
+        mensaje("Tu turno.");
+        mostrarMano();
+      }, 1000);
+    }
+
+    function verificarVictoria() {
+      if (manoJugador.length === 0) {
+        mensaje("🎉 ¡Tú has ganado! 🎉");
+        juegoTerminado = true;
+      } else if (manoIA.length === 0) {
+        mensaje("😢 La mesa ha ganado. 😢");
+        juegoTerminado = true;
+      }
+    }
+
+    function reiniciarJuego() {
+      manoJugador = [];
+      manoIA = [];
+      mesa = [];
+      puntosTotales = 0;
+      juegoTerminado = false;
+      ronda++;
+      document.getElementById('mesa').innerHTML = '';
+      document.getElementById('rondas').textContent = `Ronda: ${ronda}`;
+      document.getElementById('puntos').textContent = `Puntos totales: 0`;
+      mensaje("¡Nueva partida iniciada!");
+      iniciarJuego();
+    }
+
+    function iniciarJuego() {
+      const fichas = crearFichas();
+      mezclar(fichas);
+      for (let i = 0; i < 7; i++) {
+        manoJugador.push(fichas.pop());
+        manoIA.push(fichas.pop());
+      }
+      turnoJugador = Math.random() < 0.5;
+      mostrarMano();
+      if (turnoJugador) {
+        mensaje("Empiezas tú.");
+      } else {
+        mensaje("La IA empieza.");
+        setTimeout(() => turnoIA(), 1000);
+      }
+    }
+
+    iniciarJuego();
+  </script>
+  <footer>
+    <p>© 2025 Juego de Dominó - Versión Mejorada</p>
+  </footer>
+</body>
+</html>
+<a href="dominoluis.com">Ir para a página</a>
+
